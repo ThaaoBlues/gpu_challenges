@@ -104,7 +104,7 @@ int main() {
 
     // Print results
     for (int i = 0; i < 10; i++)
-        printf("C[%d] = %f\n", i, C[i]);
+        printf("A[%d]+B[%d] = C[%d] = %f+%f = %f\n", i,i,i,A[i],B[i],C[i]);
 
     // Cleanup
     clReleaseMemObject(d_A);
