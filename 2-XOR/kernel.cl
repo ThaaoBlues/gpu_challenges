@@ -1,4 +1,4 @@
-__kernel void XOR(__global const bool *A, __global const bool *B, __global bool *C) {
+__kernel void XOR(__global unsigned int *A, __global unsigned int *B, __global unsigned int *C) {
     int id = get_global_id(0);
     C[id] = A[id] ^ B[id];
 }

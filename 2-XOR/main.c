@@ -29,15 +29,25 @@ void checkError(cl_int err, const char *operation) {
 
 int main() {
     // loading kernel
+    printf("Reading the file 1.\n");
+
     
     FILE* f = fopen("kernel.cl","rb");
+
+    // handle being called from parent directory with benchmark script
+    // useful for benchmarking
+    if(f == NULL){
+        f = fopen("./2-XOR/kernel.cl","rb");
+    }
+
     struct KernelFile* kernel_file = malloc(sizeof(struct KernelFile));
 
     fseek(f, 0, SEEK_END); 
     kernel_file->size = ftell(f)+1;
     fseek(f, 0, SEEK_SET);
 
-    kernel_file->content = (char *) malloc(kernel_file->size+1);
+    kernel_file->content = (char *) malloc(kernel_file->size);
+
     kernel_file->content[kernel_file->size] = '\0';
 
     fread(kernel_file->content,sizeof(char),kernel_file->size,f);
@@ -45,18 +55,19 @@ int main() {
     fclose(f);
 
 
+
     // set seed for random bit generation
     srand(time(NULL));
 
     // Host (CPU) code
-    bool A[DATA_SIZE], B[DATA_SIZE], C[DATA_SIZE];
+    unsigned int A[DATA_SIZE], B[DATA_SIZE], C[DATA_SIZE];
 
     // Initialize data
     for (int i = 0; i < DATA_SIZE; i++) {
         A[i] = rand()%2;
         B[i] = rand()%2;
     }
-    printf("Initialised random bit arrays.\n",A[0],B[0]);
+    printf("Initialised random bit arrays.\n");
 
     cl_int err = 0;
     
@@ -104,9 +115,9 @@ int main() {
     // CL_MEM_COPY_HOST_PTR get data from CPU (here, A and B)
     // sizeof(A) renvoie la taille de A en octets, mais nous voulons le nombre de bits de A
     // d'où l'utilisation de sizeof(bool)*DATA_SIZE, car chaque élément est un bit
-    cl_mem d_A = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(bool)*DATA_SIZE, A, NULL);
-    cl_mem d_B = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(bool)*DATA_SIZE, B, NULL);
-    cl_mem d_C = clCreateBuffer(context, CL_MEM_WRITE_ONLY,sizeof(bool)*DATA_SIZE , NULL, NULL);
+    cl_mem d_A = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(int)*DATA_SIZE, A, NULL);
+    cl_mem d_B = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(int)*DATA_SIZE, B, NULL);
+    cl_mem d_C = clCreateBuffer(context, CL_MEM_WRITE_ONLY,sizeof(int)*DATA_SIZE , NULL, NULL);
 
     // Create and build program
     const char ** kernel_code_pointer = (const char **) &(kernel_file->content);
@@ -114,7 +125,7 @@ int main() {
     clBuildProgram(program, 1, devices, NULL, NULL, NULL);
 
     // Create kernel
-    cl_kernel kernel = clCreateKernel(program, "parallel_xor", NULL);
+    cl_kernel kernel = clCreateKernel(program, "XOR", NULL);
 
     // Set kernel arguments
     // here, we need to give kernel access to the GPU buffers
@@ -136,14 +147,18 @@ int main() {
     // Read back results
     // CL_TRUE => wait for GPU to return its results before contiuing
     // the classic CPU-based program
-    clEnqueueReadBuffer(queue, d_C, CL_TRUE, 0, sizeof(bool)*DATA_SIZE, C, 0, NULL, NULL);
-
+    unsigned int * D = (unsigned int *) malloc(sizeof(int)*DATA_SIZE);
+    err = clEnqueueReadBuffer(queue, d_C, CL_TRUE, 0, sizeof(int)*DATA_SIZE, D, 0, NULL, NULL);
+    if(err != 0){
+        printf("Erreur dans clEnqueueReadBuffer() %d",(int) err);
+    }
+    
     // Print results
     
-    for (int i = 0; i < DATA_SIZE; i++){
-        printf("A[%d] = %d",i,A[i]);
-        printf("B[%d] = %d",i,B[i]);
-        printf("A[%d] XOR B[%d] = %d\n",i,i,C[i]);
+    for (int i = 0; i < 10; i++){
+        printf("A[%d] = %d ",i,A[i]);
+        printf("B[%d] = %d => ",i,B[i]);
+        printf("A[%d] XOR B[%d] = %d\n",i,i,D[i]);
     }
 
 
